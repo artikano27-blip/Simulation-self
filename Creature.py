@@ -1,5 +1,7 @@
 from Entity import Entity
 from Map import Map
+
+
 #Класс Существо, наслудуемся для удобства от Entity,дополняем нужными параметрами
 class Creature(Entity):
     def __init__(self,creature_health,creature_speed,x,y):
@@ -62,13 +64,50 @@ class Creature(Entity):
                 new_coordinate_x = x1 - 1
             elif x1 < x2:
                 new_coordinate_x = x1 + 1
+
+            step_object = core_map.map_contain_entities.get((new_coordinate_x, new_coordinate_y))
+            if not isinstance(step_object, self.food_class) and step_object is not None:
+                if y1 < y2:
+                    new_coordinate_x = x1
+                    new_coordinate_y += 1
+                elif y1 > y2:
+                    new_coordinate_x = x1
+                    new_coordinate_y -= 1
         elif y1 != y2:
             if y1 > y2:
                 new_coordinate_y = y1 - 1
             elif y1 < y2:
                 new_coordinate_y = y1 + 1
 
+            step_object = core_map.map_contain_entities.get((new_coordinate_x, new_coordinate_y))
+            if not isinstance(step_object, self.food_class) and step_object is not None:
+                new_coordinate_y = y1
+                new_coordinate_x +=1
+
         # Вызов родительского метода для фактического перемещения
         super().make_move((new_coordinate_x, new_coordinate_y), core_map)
+
+    # Функия сделай ход, обьединяет все наработки в одну функцию
+    def make_turn(self,core_map:Map):
+        #Логика потери здоровья пассивно(старение)
+        if self.creature_health>0:
+            self.creature_health-=3
+
+            #Запускаем локатор еды если существо живо
+            coords = self.find_food_on_map(core_map)
+
+            #Если еда есть на карте выполняем движение к еде
+            if coords != None:
+                self.calculate_next_step(coords,core_map)
+                if self.object_coordinates==coords:
+                    self.creature_health +=20 #Отжор хп со сьеденной пищи
+                    core_map.remove_entity_from_map(coords) #Удаляем сьеденное
+
+                return True
+            #Если еды не нашли
+            return False
+
+
+
 
 
