@@ -1,5 +1,5 @@
-from Entity import Entity
-from Map import Map
+from entity import Entity,Grass
+from map import Map
 
 
 #Класс Существо, наслудуемся для удобства от Entity,дополняем нужными параметрами
@@ -13,13 +13,14 @@ class Creature(Entity):
     #Создаем одну из основных функций перемещения обьекта,ссылаемся на :Map для удобства
     def make_move(self,new_coordinate,core_map: Map):
         #Делаем барьер для будущих обьектов, чтобы не выходили за границы карты
+        get_object = core_map.map_contain_entities.get(new_coordinate)
         current_coordinates = (self.object_coordinates)
         x,y = new_coordinate
         if x < 0 or y < 0 or x>= core_map.map_width or y>=core_map.map_height:
             return current_coordinates
         #Проверяем занята ли координата на карте обьектов
         else:
-            if new_coordinate not in core_map.map_contain_entities:
+            if new_coordinate not in core_map.map_contain_entities or isinstance(get_object,self.food_class):
                 core_map.map_contain_entities[new_coordinate]=self
                 #Не забываем поменять значение так же в самом обьекте, а после подчистить хвосты
                 self.object_coordinates = new_coordinate
@@ -85,13 +86,16 @@ class Creature(Entity):
                 new_coordinate_x +=1
 
         # Вызов родительского метода для фактического перемещения
-        super().make_move((new_coordinate_x, new_coordinate_y), core_map)
+        self.make_move((new_coordinate_x, new_coordinate_y), core_map)
 
     # Функия сделай ход, обьединяет все наработки в одну функцию
     def make_turn(self,core_map:Map):
         #Логика потери здоровья пассивно(старение)
-        if self.creature_health>0:
             self.creature_health-=3
+            #Проверяем хп
+            if self.creature_health <= 0:
+                core_map.remove_entity_from_map(self.object_coordinates)
+                return False  # Останавливаем ход, в свзяи со смертью
 
             #Запускаем локатор еды если существо живо
             coords = self.find_food_on_map(core_map)
@@ -99,15 +103,21 @@ class Creature(Entity):
             #Если еда есть на карте выполняем движение к еде
             if coords != None:
                 self.calculate_next_step(coords,core_map)
+                #Дошли до еды хаваем
                 if self.object_coordinates==coords:
                     self.creature_health +=20 #Отжор хп со сьеденной пищи
-                    core_map.remove_entity_from_map(coords) #Удаляем сьеденное
-
                 return True
             #Если еды не нашли
             return False
 
+class Predator(Creature):
+    def __init__(self,creature_health,creature_speed,damage,x,y):
+        super().__init__(creature_health,creature_speed,x,y)
+        self.damage = damage
+        self.food_class = Herbivore
 
-
-
+class Herbivore(Creature):
+    def __init__(self,creature_health,creature_speed,x,y):
+        super().__init__(creature_health, creature_speed, x, y)
+        self.food_class = Grass
 
