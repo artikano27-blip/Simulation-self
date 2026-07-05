@@ -1,5 +1,6 @@
-from entity import Entity,Grass
+from entity import Entity,Grass,Tree,Rock
 from map import Map
+from collections import deque
 
 
 #Класс Существо, наслудуемся для удобства от Entity,дополняем нужными параметрами
@@ -51,42 +52,45 @@ class Creature(Entity):
         #Возращаем координаты для дальнейшей обработки
         return closest_coordinate
     #Функция движения обьекта к ближайшей пище
-    def calculate_next_step(self,closest_coordinate,core_map:Map):
-        x1, y1 = self.object_coordinates
-        x2, y2 = closest_coordinate
+    def find_path(self, start_pos, target_pos, core_map):
+        queue = deque([start_pos])
+        visited = {start_pos}
+        came_from = {start_pos: None}
 
-        # Задаем базовые значения, чтобы избежать ошибок и телепортаций
-        new_coordinate_x = x1
-        new_coordinate_y = y1
+        # 1. Поиск пути
+        found = False
+        while queue:
+            current_pos = queue.popleft()
+            if current_pos == target_pos:
+                found = True
+                break
 
-        # Логика L-образного движения
-        if x1 != x2:
-            if x1 > x2:
-                new_coordinate_x = x1 - 1
-            elif x1 < x2:
-                new_coordinate_x = x1 + 1
+            x, y = current_pos
+            for neighbor in [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)]:
+                # Проверяем границы карты и проходимость
+                if (0 <= neighbor[0] < core_map.map_width and
+                        0 <= neighbor[1] < core_map.map_height):
 
-            step_object = core_map.map_contain_entities.get((new_coordinate_x, new_coordinate_y))
-            if not isinstance(step_object, self.food_class) and step_object is not None:
-                if y1 < y2:
-                    new_coordinate_x = x1
-                    new_coordinate_y += 1
-                elif y1 > y2:
-                    new_coordinate_x = x1
-                    new_coordinate_y -= 1
-        elif y1 != y2:
-            if y1 > y2:
-                new_coordinate_y = y1 - 1
-            elif y1 < y2:
-                new_coordinate_y = y1 + 1
+                    step_object = core_map.map_contain_entities.get(neighbor)
+                    # Можно идти в пустоту или на еду
+                    if (step_object is None or isinstance(step_object, self.food_class)) and neighbor not in visited:
+                        visited.add(neighbor)
+                        queue.append(neighbor)
+                        came_from[neighbor] = current_pos
 
-            step_object = core_map.map_contain_entities.get((new_coordinate_x, new_coordinate_y))
-            if not isinstance(step_object, self.food_class) and step_object is not None:
-                new_coordinate_y = y1
-                new_coordinate_x +=1
+        # 2. Восстановление пути
+        if not found:
+            return None
 
-        # Вызов родительского метода для фактического перемещения
-        self.make_move((new_coordinate_x, new_coordinate_y), core_map)
+        path = []
+        current = target_pos
+        while current != start_pos:
+            path.append(current)
+            current = came_from[current]
+
+        path.reverse()  # Разворачиваем, чтобы путь шел от волка к еде
+        return path
+
 
     # Функия сделай ход, обьединяет все наработки в одну функцию
     def make_turn(self,core_map:Map):
