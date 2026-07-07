@@ -2,8 +2,10 @@ import random
 
 from entity import Entity, Grass, Tree, Rock
 from map import Map
-from collections import deque
+
 from random import choice
+
+from pathfinder import PathFinder
 
 
 # Класс Существо, наслудуемся для удобства от Entity,дополняем нужными параметрами
@@ -12,6 +14,7 @@ class Creature(Entity):
         super().__init__(x, y)
         self.creature_health = creature_health
         self.creature_speed = creature_speed
+        self.path_finder = PathFinder()
         # Важный индикатор цели для преследования. Нужен для работы дальнейших функций
         self.food_class = None
         # Счетчик сьеденной еды сущевством
@@ -63,49 +66,9 @@ class Creature(Entity):
         # Возращаем координаты для дальнейшей обработки
         return closest_coordinate
 
-    # Функция движения обьекта к ближайшей пище
-    def find_path(self, start_pos, target_pos, core_map):
-        queue = deque([start_pos])
-        visited = {start_pos}
-        came_from = {start_pos: None}
-
-        # 1. Поиск пути
-        found = False
-        while queue:
-            current_pos = queue.popleft()
-            if current_pos == target_pos:
-                found = True
-                break
-
-            x, y = current_pos
-            for neighbor in [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)]:
-                # Проверяем границы карты и проходимость
-                if (0 <= neighbor[0] < core_map.map_width and
-                        0 <= neighbor[1] < core_map.map_height):
-
-                    step_object = core_map.map_contain_entities.get(neighbor)
-                    # Можно идти в пустоту или на еду
-                    if (step_object is None or isinstance(step_object, self.food_class)) and neighbor not in visited:
-                        visited.add(neighbor)
-                        queue.append(neighbor)
-                        came_from[neighbor] = current_pos
-
-        # 2. Восстановление пути
-        if not found:
-            return None
-
-        path = []
-        current = target_pos
-        while current != start_pos:
-            path.append(current)
-            current = came_from[current]
-
-        path.reverse()  # Разворачиваем, чтобы путь шел от волка к еде
-        return path
-
     # Высчитываем оптимальный ход
     def calculate_next_step(self, coords, core_map):
-        path = self.find_path(self.object_coordinates, coords, core_map)
+        path = self.path_finder.find_path(self.object_coordinates, coords, core_map, self.food_class)
         if path:
             if self.make_move(path[0], core_map):
                 return coords
@@ -142,8 +105,7 @@ class Creature(Entity):
         possible_moves = []
         for neighbor in [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)]:
             # Проверяем границы карты и проходимость
-            if (0 <= neighbor[0] < core_map.map_width and
-                0 <= neighbor[1] < core_map.map_height) and neighbor not in core_map.map_contain_entities:
+            if core_map.is_in_bounds(neighbor) and core_map.is_empty(neighbor):
                 possible_moves.append(neighbor)
 
         return possible_moves

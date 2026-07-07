@@ -1,4 +1,5 @@
 from simulation import Simulation
+
 print("1. Создаем объект симуляции...")
 if __name__ == "__main__":
     world_1 = Simulation()
